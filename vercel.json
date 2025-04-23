@@ -1,0 +1,18 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "Text2img.py",
+      "use": "@vercel/python"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "Text2img.py"
+    }
+  ],
+  "env": {
+    "DASHSCOPE_API_KEY": "sk-ce6d40e38d234ce8a1414f4be96868e6"
+  }
+} 

@@ -395,5 +395,11 @@ def home():
     return render_template_string(html)
 
 if __name__ == "__main__":
+    # 本地运行模式
     print(f"启动网页服务器，请访问 http://127.0.0.1:5000")
     app.run(debug=True, threaded=True)
+else:
+    # Vercel部署模式
+    # 确保应用可以作为WSGI应用程序被Vercel导入
+    # 不要在这里启动服务器
+    pass
