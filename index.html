@@ -184,8 +184,11 @@
             const imageWrapper = document.getElementById('image-wrapper');
             const placeholder = document.getElementById('placeholder');
             
-            // API密钥 - 内嵌到前端是不安全的，但为了排查问题先这样做
+            // API密钥
             const API_KEY = "sk-ce6d40e38d234ce8a1414f4be96868e6";
+            
+            // 使用CORS代理
+            const CORS_PROXY = "https://corsproxy.io/?";
             
             let taskId = null;
             let pollingInterval = null;
@@ -205,7 +208,7 @@
                 startGeneration(prompt);
             });
             
-            // 开始生成图片 - 直接调用阿里云API
+            // 开始生成图片 - 通过CORS代理调用阿里云API
             function startGeneration(prompt) {
                 isGenerating = true;
                 generateBtn.disabled = true;
@@ -218,8 +221,8 @@
                 placeholder.style.display = 'flex';
                 downloadButton.style.display = 'none';
                 
-                // 直接调用阿里云API
-                fetch('https://dashscope.aliyuncs.com/api/v1/services/aigc/text2image/image-synthesis', {
+                // 通过CORS代理调用阿里云API
+                fetch(CORS_PROXY + encodeURIComponent('https://dashscope.aliyuncs.com/api/v1/services/aigc/text2image/image-synthesis'), {
                     method: 'POST',
                     headers: {
                         'X-DashScope-Async': 'enable',
@@ -265,8 +268,8 @@
                     attempts++;
                     statusText.textContent = `任务处理中...(${attempts}/${maxAttempts})`;
                     
-                    // 直接调用阿里云API检查状态
-                    fetch(`https://dashscope.aliyuncs.com/api/v1/tasks/${taskId}`, {
+                    // 通过CORS代理检查状态
+                    fetch(CORS_PROXY + encodeURIComponent(`https://dashscope.aliyuncs.com/api/v1/tasks/${taskId}`), {
                         headers: {
                             'Authorization': `Bearer ${API_KEY}`
                         }
@@ -308,6 +311,11 @@
                 statusText.textContent = "图片生成成功！";
                 statusText.style.color = "#4CAF50";
                 
+                // 如果图片URL不是HTTPS，使用代理
+                if (!imageUrl.startsWith('https://')) {
+                    imageUrl = CORS_PROXY + encodeURIComponent(imageUrl);
+                }
+                
                 resultImage.src = imageUrl;
                 resultImage.onload = function() {
                     imageWrapper.style.display = 'inline-block';
@@ -337,6 +345,12 @@
             // 下载图片
             function downloadImage(imageUrl, promptText) {
                 if (!imageUrl) return;
+                
+                // 如果是代理URL，先解码获取原始URL用于文件名
+                let downloadUrl = imageUrl;
+                if (imageUrl.startsWith(CORS_PROXY)) {
+                    downloadUrl = decodeURIComponent(imageUrl.substring(CORS_PROXY.length));
+                }
                 
                 const filename = `${promptText}_${new Date().getTime()}.jpg`;
                 
