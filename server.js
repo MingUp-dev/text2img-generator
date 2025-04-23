@@ -1,4 +1,4 @@
-// server.js - 本地开发服务器和Vercel部署服务器
+// server.js - 本地开发服务器和云服务部署
 import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -18,6 +18,16 @@ const API_KEY = process.env.DASHSCOPE_API_KEY || 'sk-ce6d40e38d234ce8a1414f4be96
 // 中间件设置
 app.use(express.json());
 app.use(express.static(__dirname)); // 提供静态文件
+
+// 添加健康检查路由（云平台通常需要）
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'ok' });
+});
+
+// 确保根路径能正确响应
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'index.html'));
+});
 
 // API路由 - 生成图片
 app.post('/api/generate', async (req, res) => {
@@ -133,13 +143,11 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// Vercel 导出的API处理函数
-export default app;
+// 启动服务器并监听指定端口
+// 不再使用条件启动，确保在任何环境都会启动服务器
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`服务器启动在端口 ${PORT}`);
+});
 
-// 仅在本地环境启动服务器
-if (process.env.NODE_ENV !== 'production') {
-  app.listen(PORT, () => {
-    console.log(`服务器启动在 http://localhost:${PORT}`);
-    console.log('请在浏览器中访问上面的URL地址');
-  });
-}
+// 为了兼容性保留Vercel导出
+export default app;
