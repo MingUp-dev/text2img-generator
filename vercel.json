@@ -2,14 +2,14 @@
   "version": 2,
   "builds": [
     {
-      "src": "Text2img.py",
+      "src": "api/serverless.py",
       "use": "@vercel/python"
     }
   ],
   "routes": [
     {
       "src": "/(.*)",
-      "dest": "Text2img.py"
+      "dest": "/api/serverless.py"
     }
   ],
   "env": {
