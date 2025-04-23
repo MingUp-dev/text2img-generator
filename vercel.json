@@ -1,16 +1,10 @@
 {
   "version": 2,
   "builds": [
-    {
-      "src": "api/serverless.py",
-      "use": "@vercel/python"
-    }
+    { "src": "server.js", "use": "@vercel/node" }
   ],
   "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "/api/serverless.py"
-    }
+    { "src": "/(.*)", "dest": "/server.js" }
   ],
   "env": {
     "DASHSCOPE_API_KEY": "sk-ce6d40e38d234ce8a1414f4be96868e6"

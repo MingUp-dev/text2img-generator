@@ -6,15 +6,11 @@
 
 body { 
     font-family: Arial, sans-serif;
-    background-color: #f5f5f5;
-    line-height: 1.6;
-}
-
-.container {
     max-width: 800px;
     margin: 0 auto;
     padding: 20px;
     text-align: center;
+    background-color: #f5f5f5;
 }
 
 h1 {
@@ -28,6 +24,12 @@ h1 {
     border-radius: 8px;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     margin-bottom: 30px;
+}
+
+.prompt-form {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 15px;
 }
 
 input[type="text"] {
@@ -47,7 +49,6 @@ button {
     border-radius: 4px;
     cursor: pointer;
     font-size: 16px;
-    transition: background-color 0.3s;
 }
 
 button:hover {
@@ -111,16 +112,10 @@ img {
     fill: white;
 }
 
-.status {
-    margin-top: 10px;
-    font-size: 14px;
-    color: #2196F3;
+.message {
+    color: #666;
+    margin: 10px 0;
     font-weight: bold;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-    min-height: 30px;
 }
 
 .placeholder {
@@ -131,6 +126,18 @@ img {
     align-items: center;
     justify-content: center;
     color: #aaa;
+}
+
+.status {
+    margin-top: 10px;
+    font-size: 14px;
+    color: #2196F3;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    min-height: 30px;
 }
 
 /* 添加动画 */

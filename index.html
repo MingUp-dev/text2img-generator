@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI图像生成器</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="stylesheet" href="style.css">
     <!-- 防止favicon 404错误 -->
     <link rel="icon" href="data:,">
@@ -13,33 +13,31 @@
     </script>
 </head>
 <body>
-    <div class="container">
-        <h1>AI图像生成器</h1>
-        
-        <div class="form-container">
-            <form id="generate-form">
-                <input type="text" id="prompt-input" name="prompt" placeholder="输入提示词..." required>
-                <button type="submit" id="generate-btn">生成图片</button>
-            </form>
-            <div class="status">
-                <div class="loader" id="loading-indicator"></div>
-                <span id="status-text"></span>
-            </div>
+    <h1>AI图像生成器</h1>
+    
+    <div class="form-container">
+        <div class="prompt-form">
+            <input type="text" id="prompt-input" placeholder="输入提示词..." value="芙莉莲" required>
+            <button id="generate-btn" type="button">生成图片</button>
         </div>
-        
-        <div class="image-container">
-            <h2>生成结果</h2>
-            <div class="image-wrapper" id="image-wrapper" style="display: none;">
-                <img id="result-image" alt="生成的图片">
-                <button id="download-button" class="download-btn" style="display: none;">
-                    <svg class="download-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
-                    </svg>
-                    下载
-                </button>
-            </div>
-            <div class="placeholder" id="placeholder">尚未生成图片</div>
+        <div class="status">
+            <div class="loader" id="loading-indicator"></div>
+            <span id="status-text"></span>
         </div>
+    </div>
+    
+    <div class="image-container">
+        <h2>生成结果</h2>
+        <div class="image-wrapper" id="image-wrapper" style="display: none">
+            <img id="result-image" src="" alt="生成的图片">
+            <button id="download-button" class="download-btn" style="display: none;">
+                <svg class="download-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
+                </svg>
+                下载
+            </button>
+        </div>
+        <div class="placeholder" id="placeholder">尚未生成图片</div>
     </div>
 
     <script src="script.js"></script>
