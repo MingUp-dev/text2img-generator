@@ -1,0 +1,9 @@
+{
+  "name": "ai-image-generator",
+  "version": "1.0.0",
+  "description": "AI图像生成器 - 前端版本",
+  "private": true,
+  "scripts": {
+    "start": "python -m http.server 8000"
+  }
+}
