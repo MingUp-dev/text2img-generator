@@ -143,6 +143,18 @@
             font-weight: bold;
             margin-top: 10px;
         }
+        .debug-info {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #f8f8f8;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 12px;
+            text-align: left;
+            display: none;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
     </style>
 </head>
 <body>
@@ -173,6 +185,8 @@
         <div class="placeholder" id="placeholder">尚未生成图片</div>
     </div>
 
+    <div id="debug-info" class="debug-info"></div>
+
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const promptInput = document.getElementById('prompt-input');
@@ -183,16 +197,56 @@
             const downloadButton = document.getElementById('download-button');
             const imageWrapper = document.getElementById('image-wrapper');
             const placeholder = document.getElementById('placeholder');
+            const debugInfo = document.getElementById('debug-info');
+            
+            // 开发模式 - 显示调试信息
+            const DEBUG_MODE = false;
             
             // API密钥
             const API_KEY = "sk-ce6d40e38d234ce8a1414f4be96868e6";
             
-            // 使用CORS代理
-            const CORS_PROXY = "https://corsproxy.io/?";
+            // 尝试多个CORS代理
+            const CORS_PROXIES = [
+                "https://api.allorigins.win/raw?url=",
+                "https://cors-anywhere.herokuapp.com/",
+                "https://corsproxy.io/?"
+            ];
             
+            let currentProxyIndex = 0;
             let taskId = null;
             let pollingInterval = null;
             let isGenerating = false;
+            
+            function getCurrentProxy() {
+                return CORS_PROXIES[currentProxyIndex];
+            }
+            
+            function tryNextProxy() {
+                currentProxyIndex = (currentProxyIndex + 1) % CORS_PROXIES.length;
+                return getCurrentProxy();
+            }
+            
+            // 显示调试信息
+            function logDebug(message, data) {
+                if (!DEBUG_MODE) return;
+                
+                console.log(message, data);
+                
+                let content = debugInfo.innerHTML;
+                content += `\n${new Date().toISOString()} - ${message}\n`;
+                if (data) {
+                    if (typeof data === 'object') {
+                        content += JSON.stringify(data, null, 2) + '\n';
+                    } else {
+                        content += data + '\n';
+                    }
+                }
+                debugInfo.innerHTML = content;
+                debugInfo.style.display = 'block';
+                
+                // 滚动到底部
+                debugInfo.scrollTop = debugInfo.scrollHeight;
+            }
             
             // 生成图片按钮点击事件
             generateBtn.addEventListener('click', function() {
@@ -205,11 +259,46 @@
                     return;
                 }
                 
+                // 重置调试信息
+                if (DEBUG_MODE) {
+                    debugInfo.innerHTML = '';
+                    debugInfo.style.display = 'block';
+                }
+                
                 startGeneration(prompt);
             });
             
-            // 开始生成图片 - 通过CORS代理调用阿里云API
-            function startGeneration(prompt) {
+            // 尝试使用API创建图片
+            async function makeApiRequest(url, options, retryCount = 0) {
+                const maxRetries = CORS_PROXIES.length;
+                let proxy = getCurrentProxy();
+                
+                try {
+                    logDebug(`使用代理 ${proxy} 请求 ${url}`);
+                    const response = await fetch(proxy + encodeURIComponent(url), options);
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP错误: ${response.status}`);
+                    }
+                    
+                    const data = await response.json();
+                    logDebug('API响应', data);
+                    return data;
+                } catch (error) {
+                    logDebug(`请求失败: ${error.message}`);
+                    
+                    if (retryCount < maxRetries - 1) {
+                        proxy = tryNextProxy();
+                        logDebug(`尝试使用下一个代理: ${proxy}`);
+                        return makeApiRequest(url, options, retryCount + 1);
+                    } else {
+                        throw error;
+                    }
+                }
+            }
+            
+            // 开始生成图片
+            async function startGeneration(prompt) {
                 isGenerating = true;
                 generateBtn.disabled = true;
                 loader.style.display = 'inline-block';
@@ -221,8 +310,10 @@
                 placeholder.style.display = 'flex';
                 downloadButton.style.display = 'none';
                 
-                // 通过CORS代理调用阿里云API
-                fetch(CORS_PROXY + encodeURIComponent('https://dashscope.aliyuncs.com/api/v1/services/aigc/text2image/image-synthesis'), {
+                logDebug('开始生成图片', { prompt });
+                
+                // API参数
+                const options = {
                     method: 'POST',
                     headers: {
                         'X-DashScope-Async': 'enable',
@@ -234,15 +325,14 @@
                         input: { prompt: prompt },
                         parameters: { size: "1024*1024", n: 1 }
                     })
-                })
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error(`HTTP错误: ${response.status}`);
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    console.log("API提交响应:", data);
+                };
+                
+                try {
+                    const data = await makeApiRequest(
+                        'https://dashscope.aliyuncs.com/api/v1/services/aigc/text2image/image-synthesis',
+                        options
+                    );
+                    
                     if (data.output && data.output.task_id) {
                         taskId = data.output.task_id;
                         statusText.textContent = "任务已提交，正在生成中...";
@@ -250,11 +340,10 @@
                     } else {
                         throw new Error("未收到有效的任务ID");
                     }
-                })
-                .catch(error => {
+                } catch (error) {
                     console.error("API请求错误:", error);
                     handleError("API请求错误: " + error.message);
-                });
+                }
             }
             
             // 轮询检查生成状态
@@ -264,24 +353,28 @@
                 let attempts = 0;
                 const maxAttempts = 30;
                 
-                pollingInterval = setInterval(() => {
+                logDebug('开始轮询任务状态', { taskId });
+                
+                pollingInterval = setInterval(async () => {
                     attempts++;
                     statusText.textContent = `任务处理中...(${attempts}/${maxAttempts})`;
                     
-                    // 通过CORS代理检查状态
-                    fetch(CORS_PROXY + encodeURIComponent(`https://dashscope.aliyuncs.com/api/v1/tasks/${taskId}`), {
-                        headers: {
-                            'Authorization': `Bearer ${API_KEY}`
+                    try {
+                        const data = await makeApiRequest(
+                            `https://dashscope.aliyuncs.com/api/v1/tasks/${taskId}`,
+                            {
+                                headers: {
+                                    'Authorization': `Bearer ${API_KEY}`
+                                }
+                            }
+                        );
+                        
+                        logDebug(`任务状态查询 (${attempts}/${maxAttempts})`, data);
+                        
+                        if (!data.output) {
+                            throw new Error("无效的API响应");
                         }
-                    })
-                    .then(response => {
-                        if (!response.ok) {
-                            throw new Error(`HTTP错误: ${response.status}`);
-                        }
-                        return response.json();
-                    })
-                    .then(data => {
-                        console.log("状态查询响应:", data);
+                        
                         const taskStatus = data.output.task_status;
                         
                         if (taskStatus === 'SUCCEEDED') {
@@ -296,24 +389,29 @@
                             clearInterval(pollingInterval);
                             handleError("生成超时，请重试");
                         }
-                    })
-                    .catch(error => {
-                        console.error("状态查询错误:", error);
-                        clearInterval(pollingInterval);
-                        handleError("获取状态失败: " + error.message);
-                    });
-                }, 2000); // 每2秒检查一次
+                    } catch (error) {
+                        logDebug(`轮询错误: ${error.message}`);
+                        // 轮询出错时继续尝试，除非达到最大次数
+                        if (attempts >= maxAttempts) {
+                            clearInterval(pollingInterval);
+                            handleError("获取状态失败: " + error.message);
+                        }
+                    }
+                },.50); // 每5秒检查一次
             }
             
             // 处理生成成功
             function handleSuccess(imageUrl) {
+                logDebug('图片生成成功', { imageUrl });
+                
                 loader.style.display = 'none';
                 statusText.textContent = "图片生成成功！";
                 statusText.style.color = "#4CAF50";
                 
                 // 如果图片URL不是HTTPS，使用代理
                 if (!imageUrl.startsWith('https://')) {
-                    imageUrl = CORS_PROXY + encodeURIComponent(imageUrl);
+                    imageUrl = getCurrentProxy() + encodeURIComponent(imageUrl);
+                    logDebug('使用代理加载非HTTPS图片', { proxyImageUrl: imageUrl });
                 }
                 
                 resultImage.src = imageUrl;
@@ -326,6 +424,17 @@
                     };
                 };
                 
+                resultImage.onerror = function() {
+                    logDebug('图片加载失败，尝试使用另一个代理');
+                    // 如果图片加载失败，尝试使用另一个代理
+                    const newProxy = tryNextProxy();
+                    const newImageUrl = newProxy + encodeURIComponent(imageUrl.includes('http') ? 
+                        imageUrl.substring(imageUrl.indexOf('http')) : 
+                        imageUrl);
+                    
+                    resultImage.src = newImageUrl;
+                };
+                
                 // 重置生成状态
                 isGenerating = false;
                 generateBtn.disabled = false;
@@ -333,6 +442,8 @@
             
             // 处理错误
             function handleError(message) {
+                logDebug('处理错误', { message });
+                
                 loader.style.display = 'none';
                 statusText.textContent = message;
                 statusText.style.color = "#f44336";
@@ -346,10 +457,13 @@
             function downloadImage(imageUrl, promptText) {
                 if (!imageUrl) return;
                 
+                logDebug('下载图片', { imageUrl });
+                
                 // 如果是代理URL，先解码获取原始URL用于文件名
                 let downloadUrl = imageUrl;
-                if (imageUrl.startsWith(CORS_PROXY)) {
-                    downloadUrl = decodeURIComponent(imageUrl.substring(CORS_PROXY.length));
+                const proxyPrefix = getCurrentProxy();
+                if (imageUrl.startsWith(proxyPrefix)) {
+                    downloadUrl = decodeURIComponent(imageUrl.substring(proxyPrefix.length));
                 }
                 
                 const filename = `${promptText}_${new Date().getTime()}.jpg`;
@@ -361,6 +475,19 @@
                 link.click();
                 document.body.removeChild(link);
             }
+            
+            // 为调试模式添加快捷键切换
+            document.addEventListener('keydown', function(e) {
+                // Ctrl+Shift+D 切换调试模式
+                if (e.ctrlKey && e.shiftKey && e.key === 'D') {
+                    DEBUG_MODE = !DEBUG_MODE;
+                    debugInfo.style.display = DEBUG_MODE ? 'block' : 'none';
+                    if (DEBUG_MODE) {
+                        debugInfo.innerHTML = '调试模式已启用\n';
+                        logDebug('当前代理', { proxy: getCurrentProxy() });
+                    }
+                }
+            });
         });
     </script>
 </body>
