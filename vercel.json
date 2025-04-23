@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 {
   "version": 2,
   "builds": [
@@ -9,4 +10,17 @@
   "env": {
     "DASHSCOPE_API_KEY": "sk-ce6d40e38d234ce8a1414f4be96868e6"
   }
+=======
+{
+  "version": 2,
+  "builds": [
+    { "src": "server.js", "use": "@vercel/node" }
+  ],
+  "routes": [
+    { "src": "/(.*)", "dest": "/server.js" }
+  ],
+  "env": {
+    "DASHSCOPE_API_KEY": "sk-ce6d40e38d234ce8a1414f4be96868e6"
+  }
+>>>>>>> 3584e8959098d9c59ccdde56ffcef551c1e2d293
 } 
