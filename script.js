@@ -7,22 +7,25 @@ document.addEventListener('DOMContentLoaded', function() {
     const downloadButton = document.getElementById('download-button');
     const imageWrapper = document.getElementById('image-wrapper');
     const placeholder = document.getElementById('placeholder');
-    
+
     let taskId = null;
     let pollingInterval = null;
     let isGenerating = false;
     
+    // 获取当前网站的基础URL
+    const baseUrl = window.location.origin;
+    
     // 生成图片按钮点击事件
     generateBtn.addEventListener('click', function() {
         if (isGenerating) return;
-        
+
         const prompt = promptInput.value.trim();
         if (!prompt) {
             statusText.textContent = "请输入提示词";
             statusText.style.color = "#f44336";
             return;
         }
-        
+
         startGeneration(prompt);
     });
     
@@ -39,15 +42,23 @@ document.addEventListener('DOMContentLoaded', function() {
         placeholder.style.display = 'flex';
         downloadButton.style.display = 'none';
         
+        // 添加错误处理和调试信息
+        console.log("发送生成请求到:", baseUrl + '/api/generate');
+        
         // 调用API开始生成
-        fetch('/api/generate', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
+        fetch(baseUrl + '/api/generate', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
             body: JSON.stringify({ prompt: prompt })
         })
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP错误: ${response.status}`);
+            }
+            return response.json();
+        })
         .then(data => {
             if (data.success) {
                 taskId = data.taskId;
@@ -59,6 +70,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         })
         .catch(error => {
+            console.error("API请求错误:", error);
             handleError("网络请求错误: " + error.message);
         });
     }
@@ -74,8 +86,15 @@ document.addEventListener('DOMContentLoaded', function() {
             attempts++;
             statusText.textContent = `任务处理中...(${attempts}/${maxAttempts})`;
             
-            fetch(`/api/status?taskId=${taskId}`)
-                .then(response => response.json())
+            console.log("发送状态查询请求到:", baseUrl + `/api/status?taskId=${taskId}`);
+            
+            fetch(baseUrl + `/api/status?taskId=${taskId}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP错误: ${response.status}`);
+                    }
+                    return response.json();
+                })
                 .then(data => {
                     if (data.status === 'SUCCEEDED') {
                         clearInterval(pollingInterval);
@@ -89,6 +108,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                 })
                 .catch(error => {
+                    console.error("状态查询错误:", error);
                     clearInterval(pollingInterval);
                     handleError("获取状态失败: " + error.message);
                 });
@@ -100,7 +120,7 @@ document.addEventListener('DOMContentLoaded', function() {
         loader.style.display = 'none';
         statusText.textContent = "图片生成成功！";
         statusText.style.color = "#4CAF50";
-        
+                
         resultImage.src = imageUrl;
         resultImage.onload = function() {
             imageWrapper.style.display = 'inline-block';
@@ -110,7 +130,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 downloadImage(imageUrl, promptInput.value); 
             };
         };
-        
+                
         // 重置生成状态
         isGenerating = false;
         generateBtn.disabled = false;
@@ -121,12 +141,12 @@ document.addEventListener('DOMContentLoaded', function() {
         loader.style.display = 'none';
         statusText.textContent = message;
         statusText.style.color = "#f44336";
-        
+            
         // 重置生成状态
         isGenerating = false;
         generateBtn.disabled = false;
     }
-    
+
     // 下载图片
     function downloadImage(imageUrl, promptText) {
         if (!imageUrl) return;

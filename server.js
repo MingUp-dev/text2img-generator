@@ -19,6 +19,20 @@ const API_KEY = process.env.DASHSCOPE_API_KEY || 'sk-ce6d40e38d234ce8a1414f4be96
 app.use(express.json());
 app.use(express.static(__dirname)); // 提供静态文件
 
+// 添加CORS支持
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
+  
+  // 处理OPTIONS预检请求
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+  
+  next();
+});
+
 // 添加健康检查路由（云平台通常需要）
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok' });
@@ -57,7 +71,7 @@ app.post('/api/generate', async (req, res) => {
     if (!response.ok) {
       const errorText = await response.text();
       console.error('API调用失败:', errorText);
-      return res.status(response.status).json({ 
+      return res.status(500).json({ 
         success: false, 
         message: `API调用失败 (${response.status}): ${errorText}` 
       });
@@ -101,7 +115,7 @@ app.get('/api/status', async (req, res) => {
     if (!response.ok) {
       const errorText = await response.text();
       console.error('查询状态失败:', errorText);
-      return res.status(response.status).json({ 
+      return res.status(500).json({ 
         success: false, 
         message: `查询状态失败 (${response.status}): ${errorText}`,
         status: 'FAILED'
