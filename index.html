@@ -270,27 +270,46 @@
             const tabs = document.querySelectorAll('.tab');
             const tabContents = document.querySelectorAll('.tab-content');
             
-            // 调试模式 - 按Ctrl+Shift+D切换
-            let DEBUG_MODE = false;
+            // 调试模式 - 默认开启以便排查问题
+            let DEBUG_MODE = true;
             
             // API代理基础URL - 使用腾讯云已部署的代理
             const API_BASE_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
                 ? `http://${window.location.hostname}:5001/api` 
                 : '';  // 云环境下使用相对路径，自动指向当前域名
                 
-            // 图像合成API URL
+            // 图像合成API URL - 确保是正确的HTTP(S)格式
             const IMAGE_SYNTHESIS_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
                 ? `${API_BASE_URL}/generate`
-                : 'https://1317084862-5e3nbftci3.ap-guangzhou.tencentscf.com';  // 使用腾讯云image-synthesis-proxy的URL
+                : 'https://service-5e3nbftci3-1317084862.gz.apigw.tencentcs.com/release/';  // 使用API网关URL格式
                 
-            // 任务状态查询API URL
+            // 任务状态查询API URL - 确保是正确的HTTP(S)格式
             const TASK_STATUS_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
                 ? `${API_BASE_URL}/status`
-                : 'https://1317084862-0wt27gajy7.ap-guangzhou.tencentscf.com';  // 使用腾讯云task-status-proxy的URL
+                : 'https://service-0wt27gajy7-1317084862.gz.apigw.tencentcs.com/release/';  // 使用API网关URL格式
             
             let taskId = null;
             let pollingInterval = null;
             let isGenerating = false;
+            
+            // 初始化调试信息
+            if (DEBUG_MODE) {
+                debugInfo.style.display = 'block';
+                debugInfo.innerHTML = '调试模式已启用\n';
+                console.log('API配置', { 
+                    base: API_BASE_URL,
+                    image: IMAGE_SYNTHESIS_URL,
+                    status: TASK_STATUS_URL,
+                    host: window.location.hostname
+                });
+                
+                logDebug('API配置', { 
+                    base: API_BASE_URL,
+                    image: IMAGE_SYNTHESIS_URL,
+                    status: TASK_STATUS_URL,
+                    host: window.location.hostname
+                });
+            }
             
             // 显示调试信息
             function logDebug(message, data) {
@@ -344,12 +363,6 @@
                     return;
                 }
                 
-                // 重置调试信息
-                if (DEBUG_MODE) {
-                    debugInfo.innerHTML = '';
-                    debugInfo.style.display = 'block';
-                }
-                
                 startGeneration(prompt);
             });
             
@@ -362,12 +375,6 @@
                     statusText.textContent = "请输入图片URL";
                     statusText.style.color = "#f44336";
                     return;
-                }
-                
-                // 重置调试信息
-                if (DEBUG_MODE) {
-                    debugInfo.innerHTML = '';
-                    debugInfo.style.display = 'block';
                 }
                 
                 const prompt = variationPromptInput.value.trim();
@@ -390,12 +397,19 @@
                 logDebug('开始生成图片', { prompt });
                 
                 try {
+                    // 添加详细的调试信息
+                    logDebug('发起请求到', { url: IMAGE_SYNTHESIS_URL });
+                    
                     // 调用代理API创建图像生成任务
                     const response = await fetch(IMAGE_SYNTHESIS_URL, {
                         method: 'POST',
                         headers: {
-                            'Content-Type': 'application/json'
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'Access-Control-Allow-Origin': '*'
                         },
+                        mode: 'cors',  // 确保使用CORS模式
+                        credentials: 'omit',  // 不发送cookie
                         body: JSON.stringify({
                             model: "wanx2.1-t2i-turbo",
                             input: { prompt: prompt },
@@ -445,12 +459,19 @@
                 logDebug('开始生成图像变体', { imageUrl, prompt });
                 
                 try {
+                    // 添加详细的调试信息
+                    logDebug('发起变体请求到', { url: IMAGE_SYNTHESIS_URL });
+                    
                     // 调用代理API创建图像变体任务
                     const response = await fetch(IMAGE_SYNTHESIS_URL, {
                         method: 'POST',
                         headers: {
-                            'Content-Type': 'application/json'
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'Access-Control-Allow-Origin': '*'
                         },
+                        mode: 'cors',  // 确保使用CORS模式
+                        credentials: 'omit',  // 不发送cookie
                         body: JSON.stringify({ 
                             model: "wanx2.1-style-t2i",
                             input: {
@@ -504,12 +525,19 @@
                     statusText.textContent = `任务处理中...(${attempts}/${maxAttempts})`;
                     
                     try {
+                        // 添加详细的调试信息
+                        logDebug('发起状态查询到', { url: TASK_STATUS_URL, taskId: taskId });
+                        
                         // 调用代理API查询任务状态
                         const response = await fetch(TASK_STATUS_URL, {
                             method: 'POST',
                             headers: {
-                                'Content-Type': 'application/json'
+                                'Content-Type': 'application/json',
+                                'Accept': 'application/json',
+                                'Access-Control-Allow-Origin': '*'
                             },
+                            mode: 'cors',  // 确保使用CORS模式
+                            credentials: 'omit',  // 不发送cookie
                             body: JSON.stringify({ taskId: taskId })
                         });
                         
@@ -603,6 +631,11 @@
             function handleError(message) {
                 logDebug('处理错误', { message });
                 
+                // 在调试模式下，显示更详细的错误信息
+                if (DEBUG_MODE) {
+                    debugInfo.style.display = 'block';
+                }
+                
                 loader.style.display = 'none';
                 statusText.textContent = message;
                 statusText.style.color = "#f44336";
@@ -635,9 +668,15 @@
                 if (e.ctrlKey && e.shiftKey && e.key === 'D') {
                     DEBUG_MODE = !DEBUG_MODE;
                     debugInfo.style.display = DEBUG_MODE ? 'block' : 'none';
+                    
                     if (DEBUG_MODE) {
                         debugInfo.innerHTML = '调试模式已启用\n';
-                        logDebug('API基础URL', { url: API_BASE_URL });
+                        logDebug('API配置', { 
+                            base: API_BASE_URL,
+                            image: IMAGE_SYNTHESIS_URL,
+                            status: TASK_STATUS_URL,
+                            host: window.location.hostname
+                        });
                     }
                 }
             });
