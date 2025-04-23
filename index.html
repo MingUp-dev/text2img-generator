@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AI图像生成器</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="icon" href="data:,">
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body { 
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            text-align: center;
+            background-color: #f5f5f5;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+        }
+        .form-container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        .prompt-form {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 15px;
+        }
+        input[type="text"] {
+            width: 70%;
+            padding: 10px;
+            margin-right: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        button:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+        .image-container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            min-height: 400px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+        .image-wrapper {
+            position: relative;
+            display: inline-block;
+            margin-top: 20px;
+        }
+        img {
+            max-width: 100%;
+            max-height: 500px;
+            display: block;
+        }
+        .download-btn {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 8px 16px;
+            cursor: pointer;
+            transition: 0.3s;
+            display: flex;
+            align-items: center;
+            font-size: 14px;
+        }
+        .download-btn:hover {
+            background-color: rgba(0, 0, 0, 0.9);
+        }
+        .download-icon {
+            margin-right: 6px;
+            width: 16px;
+            height: 16px;
+            fill: white;
+        }
+        .placeholder {
+            width: 300px;
+            height: 300px;
+            border: 2px dashed #ddd;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #aaa;
+        }
+        .status {
+            margin-top: 10px;
+            font-size: 14px;
+            color: #2196F3;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            min-height: 30px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+            display: none;
+        }
+        .error-message {
+            color: #f44336;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+        .debug-info {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #f8f8f8;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 12px;
+            text-align: left;
+            display: none;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        .tab-container {
+            display: flex;
+            margin-bottom: 20px;
+        }
+        .tab {
+            flex: 1;
+            padding: 10px;
+            text-align: center;
+            background-color: #f0f0f0;
+            cursor: pointer;
+            border-radius: 5px 5px 0 0;
+            border: 1px solid #ddd;
+            border-bottom: none;
+        }
+        .tab.active {
+            background-color: white;
+            font-weight: bold;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .variation-controls {
+            display: flex;
+            flex-direction: column;
+            margin-top: 10px;
+            width: 100%;
+        }
+        .variation-input {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 10px;
+        }
+        .variation-btn {
+            display: block;
+            margin: 0 auto;
+            background-color: #9C27B0;
+        }
+        .variation-btn:hover {
+            background-color: #7B1FA2;
+        }
+    </style>
+</head>
+<body>
+        <h1>AI图像生成器</h1>
+        
+        <div class="tab-container">
+            <div class="tab active" data-tab="text2img">文字生成图像</div>
+            <div class="tab" data-tab="variation">图像变体</div>
+        </div>
+        
+        <div class="form-container">
+            <!-- 文字生成图像 -->
+            <div class="tab-content active" id="text2img-content">
+                <div class="prompt-form">
+                    <input type="text" id="prompt-input" placeholder="输入提示词..." value="芙莉莲" required>
+                    <button id="generate-btn" type="button">生成图片</button>
+                </div>
+            </div>
+            
+            <!-- 图像变体 -->
+            <div class="tab-content" id="variation-content">
+                <div class="variation-controls">
+                    <p>输入图片URL并生成变体</p>
+                    <div class="variation-input">
+                        <input type="text" id="image-url-input" placeholder="粘贴图片URL..." required>
+                    </div>
+                    <div class="variation-input">
+                        <input type="text" id="variation-prompt" placeholder="可选提示词，引导变化方向...">
+                    </div>
+                    <button id="variation-btn" class="variation-btn" type="button">生成变体</button>
+                </div>
+            </div>
+            
+            <div class="status">
+                <div class="loader" id="loading-indicator"></div>
+                <span id="status-text"></span>
+            </div>
+        </div>
+        
+        <div class="image-container">
+            <h2>生成结果</h2>
+            <div class="image-wrapper" id="image-wrapper" style="display: none">
+                <img id="result-image" src="" alt="生成的图片">
+                <button id="download-button" class="download-btn" style="display: none;">
+                    <svg class="download-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
+                    </svg>
+                    下载
+                </button>
+            </div>
+            <div class="placeholder" id="placeholder">尚未生成图片</div>
+        </div>
+
+    <div id="debug-info" class="debug-info"></div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const promptInput = document.getElementById('prompt-input');
+            const generateBtn = document.getElementById('generate-btn');
+            const loader = document.getElementById('loading-indicator');
+            const statusText = document.getElementById('status-text');
+            const resultImage = document.getElementById('result-image');
+            const downloadButton = document.getElementById('download-button');
+            const imageWrapper = document.getElementById('image-wrapper');
+            const placeholder = document.getElementById('placeholder');
+            const debugInfo = document.getElementById('debug-info');
+            const imageUrlInput = document.getElementById('image-url-input');
+            const variationPromptInput = document.getElementById('variation-prompt');
+            const variationBtn = document.getElementById('variation-btn');
+            const tabs = document.querySelectorAll('.tab');
+            const tabContents = document.querySelectorAll('.tab-content');
+            
+            // 调试模式 - 按Ctrl+Shift+D切换
+            let DEBUG_MODE = false;
+            
+            // API代理基础URL - 使用腾讯云已部署的代理
+            const API_BASE_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
+                ? `http://${window.location.hostname}:5001/api` 
+                : '';  // 云环境下使用相对路径，自动指向当前域名
+                
+            // 图像合成API URL
+            const IMAGE_SYNTHESIS_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+                ? `${API_BASE_URL}/generate`
+                : 'https://1317084862-5e3nbftci3.ap-guangzhou.tencentscf.com';  // 使用腾讯云image-synthesis-proxy的URL
+                
+            // 任务状态查询API URL
+            const TASK_STATUS_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+                ? `${API_BASE_URL}/status`
+                : 'https://1317084862-0wt27gajy7.ap-guangzhou.tencentscf.com';  // 使用腾讯云task-status-proxy的URL
+            
+            let taskId = null;
+            let pollingInterval = null;
+            let isGenerating = false;
+            
+            // 显示调试信息
+            function logDebug(message, data) {
+                if (!DEBUG_MODE) return;
+                
+                console.log(message, data);
+                
+                let content = debugInfo.innerHTML;
+                content += `\n${new Date().toISOString()} - ${message}\n`;
+                if (data) {
+                    if (typeof data === 'object') {
+                        content += JSON.stringify(data, null, 2) + '\n';
+                    } else {
+                        content += data + '\n';
+                    }
+                }
+                debugInfo.innerHTML = content;
+                debugInfo.style.display = 'block';
+                
+                // 滚动到底部
+                debugInfo.scrollTop = debugInfo.scrollHeight;
+            }
+            
+            // 选项卡切换
+            tabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    const tabId = tab.getAttribute('data-tab');
+                    
+                    // 重置状态
+                    if (!isGenerating) {
+                        statusText.textContent = "";
+                    }
+                    
+                    // 切换选项卡
+                    tabs.forEach(t => t.classList.remove('active'));
+                    tabContents.forEach(content => content.classList.remove('active'));
+                    
+                    tab.classList.add('active');
+                    document.getElementById(`${tabId}-content`).classList.add('active');
+                });
+            });
+            
+            // 生成图片按钮点击事件
+            generateBtn.addEventListener('click', function() {
+                if (isGenerating) return;
+                
+                const prompt = promptInput.value.trim();
+                if (!prompt) {
+                    statusText.textContent = "请输入提示词";
+                    statusText.style.color = "#f44336";
+                    return;
+                }
+                
+                // 重置调试信息
+                if (DEBUG_MODE) {
+                    debugInfo.innerHTML = '';
+                    debugInfo.style.display = 'block';
+                }
+                
+                startGeneration(prompt);
+            });
+            
+            // 变体生成按钮点击事件
+            variationBtn.addEventListener('click', function() {
+                if (isGenerating) return;
+                
+                const imageUrl = imageUrlInput.value.trim();
+                if (!imageUrl) {
+                    statusText.textContent = "请输入图片URL";
+                    statusText.style.color = "#f44336";
+                    return;
+                }
+                
+                // 重置调试信息
+                if (DEBUG_MODE) {
+                    debugInfo.innerHTML = '';
+                    debugInfo.style.display = 'block';
+                }
+                
+                const prompt = variationPromptInput.value.trim();
+                startImageVariation(imageUrl, prompt);
+            });
+            
+            // 开始生成图片
+            async function startGeneration(prompt) {
+                isGenerating = true;
+                generateBtn.disabled = true;
+                loader.style.display = 'inline-block';
+                statusText.textContent = "准备生成图片...";
+                statusText.style.color = "#2196F3";
+                
+                // 清除之前的图片结果
+                imageWrapper.style.display = 'none';
+                placeholder.style.display = 'flex';
+                downloadButton.style.display = 'none';
+                
+                logDebug('开始生成图片', { prompt });
+                
+                try {
+                    // 调用代理API创建图像生成任务
+                    const response = await fetch(IMAGE_SYNTHESIS_URL, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            model: "wanx2.1-t2i-turbo",
+                            input: { prompt: prompt },
+                            parameters: { size: "1024*1024", n: 1 }
+                        })
+                    });
+                    
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        throw new Error(`API请求失败 (${response.status}): ${errorText}`);
+                    }
+                    
+                    const data = await response.json();
+                    logDebug('API提交响应:', data);
+                    
+                    // 兼容不同的响应格式
+                    if (data.output && data.output.task_id) {
+                        taskId = data.output.task_id;
+                        statusText.textContent = "任务已提交，正在生成中...";
+                        startPolling();
+                    } else if (data.taskId) {
+                        taskId = data.taskId;
+                        statusText.textContent = "任务已提交，正在生成中...";
+                        startPolling();
+                    } else {
+                        throw new Error("未收到有效的任务ID");
+                    }
+                } catch (error) {
+                    console.error("API请求错误:", error);
+                    handleError("API请求错误: " + error.message);
+                }
+            }
+            
+            // 开始生成图像变体
+            async function startImageVariation(imageUrl, prompt) {
+                isGenerating = true;
+                variationBtn.disabled = true;
+                loader.style.display = 'inline-block';
+                statusText.textContent = "准备生成图像变体...";
+                statusText.style.color = "#2196F3";
+                
+                // 清除之前的图片结果
+                imageWrapper.style.display = 'none';
+                placeholder.style.display = 'flex';
+                downloadButton.style.display = 'none';
+                
+                logDebug('开始生成图像变体', { imageUrl, prompt });
+                
+                try {
+                    // 调用代理API创建图像变体任务
+                    const response = await fetch(IMAGE_SYNTHESIS_URL, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ 
+                            model: "wanx2.1-style-t2i",
+                            input: {
+                                image_url: imageUrl,
+                                prompt: prompt.trim() || undefined
+                            },
+                            parameters: { 
+                                size: "1024*1024", 
+                                n: 1
+                            }
+                        })
+                    });
+                    
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        throw new Error(`API请求失败 (${response.status}): ${errorText}`);
+                    }
+                    
+                    const data = await response.json();
+                    logDebug('变体API提交响应:', data);
+                    
+                    // 兼容不同的响应格式
+                    if (data.output && data.output.task_id) {
+                        taskId = data.output.task_id;
+                        statusText.textContent = "任务已提交，正在生成变体...";
+                        startPolling();
+                    } else if (data.taskId) {
+                        taskId = data.taskId;
+                        statusText.textContent = "任务已提交，正在生成变体...";
+                        startPolling();
+                    } else {
+                        throw new Error("未收到有效的任务ID");
+                    }
+                } catch (error) {
+                    console.error("API请求错误:", error);
+                    handleError("API请求错误: " + error.message);
+                }
+            }
+            
+            // 轮询检查生成状态
+            function startPolling() {
+                if (pollingInterval) clearInterval(pollingInterval);
+                
+                let attempts = 0;
+                const maxAttempts = 30;
+                
+                logDebug('开始轮询任务状态', { taskId });
+                
+                pollingInterval = setInterval(async () => {
+                    attempts++;
+                    statusText.textContent = `任务处理中...(${attempts}/${maxAttempts})`;
+                    
+                    try {
+                        // 调用代理API查询任务状态
+                        const response = await fetch(TASK_STATUS_URL, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({ taskId: taskId })
+                        });
+                        
+                        if (!response.ok) {
+                            const errorText = await response.text();
+                            throw new Error(`状态查询失败 (${response.status}): ${errorText}`);
+                        }
+                        
+                        const data = await response.json();
+                        logDebug(`任务状态查询 (${attempts}/${maxAttempts})`, data);
+                        
+                        // 兼容腾讯云函数的响应格式
+                        // 腾讯云函数直接转发阿里云API的响应
+                        const output = data.output || data;
+                        
+                        if (!output) {
+                            throw new Error("无效的API响应");
+                        }
+                        
+                        const taskStatus = output.task_status || data.status;
+                        
+                        if (taskStatus === 'SUCCEEDED') {
+                            clearInterval(pollingInterval);
+                            // 兼容两种可能的响应格式
+                            const imageUrl = output.results?.[0]?.url || data.imageUrl;
+                            handleSuccess(imageUrl);
+                        } else if (taskStatus === 'FAILED') {
+                            clearInterval(pollingInterval);
+                            const errorMsg = output.message || data.message || "图片生成失败";
+                            handleError(errorMsg);
+                        } else if (attempts >= maxAttempts) {
+                            clearInterval(pollingInterval);
+                            handleError("生成超时，请重试");
+                        }
+                    } catch (error) {
+                        logDebug(`轮询错误: ${error.message}`);
+                        // 轮询出错时继续尝试，除非达到最大次数
+                        if (attempts >= maxAttempts) {
+                            clearInterval(pollingInterval);
+                            handleError("获取状态失败: " + error.message);
+                        }
+                    }
+                }, 2000); // 每2秒检查一次
+            }
+            
+            // 处理生成成功
+            function handleSuccess(imageUrl) {
+                logDebug('图片生成成功', { imageUrl });
+                
+                loader.style.display = 'none';
+                statusText.textContent = "图片生成成功！";
+                statusText.style.color = "#4CAF50";
+                
+                resultImage.src = imageUrl;
+                resultImage.onload = function() {
+                    imageWrapper.style.display = 'inline-block';
+                    placeholder.style.display = 'none';
+                    downloadButton.style.display = 'flex';
+                    
+                    // 根据当前激活的标签页，设置不同的下载文件名
+                    const activeTab = document.querySelector('.tab.active').getAttribute('data-tab');
+                    if (activeTab === 'text2img') {
+                        downloadButton.onclick = function() { 
+                            downloadImage(imageUrl, promptInput.value); 
+                        };
+                    } else {
+                        downloadButton.onclick = function() { 
+                            downloadImage(imageUrl, '变体_' + (variationPromptInput.value || '无提示词')); 
+                        };
+                    }
+                };
+                
+                resultImage.onerror = function() {
+                    logDebug('图片加载失败');
+                    statusText.textContent = "图片链接无法加载，请尝试直接访问";
+                    statusText.style.color = "#f44336";
+                    
+                    // 在状态消息中添加可点击链接
+                    const linkSpan = document.createElement('span');
+                    linkSpan.innerHTML = `<a href="${imageUrl}" target="_blank" style="color: #2196F3; margin-left: 10px;">查看图片</a>`;
+                    statusText.appendChild(linkSpan);
+                };
+                
+                // 重置生成状态
+                isGenerating = false;
+                generateBtn.disabled = false;
+                variationBtn.disabled = false;
+            }
+            
+            // 处理错误
+            function handleError(message) {
+                logDebug('处理错误', { message });
+                
+                loader.style.display = 'none';
+                statusText.textContent = message;
+                statusText.style.color = "#f44336";
+                
+                // 重置生成状态
+                isGenerating = false;
+                generateBtn.disabled = false;
+                variationBtn.disabled = false;
+            }
+            
+            // 下载图片
+            function downloadImage(imageUrl, promptText) {
+                if (!imageUrl) return;
+                
+                logDebug('下载图片', { imageUrl });
+                
+                const filename = `${promptText}_${new Date().getTime()}.jpg`;
+                
+                const link = document.createElement('a');
+                link.href = imageUrl;
+                link.download = filename;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
+            
+            // 为调试模式添加快捷键切换
+            document.addEventListener('keydown', function(e) {
+                // Ctrl+Shift+D 切换调试模式
+                if (e.ctrlKey && e.shiftKey && e.key === 'D') {
+                    DEBUG_MODE = !DEBUG_MODE;
+                    debugInfo.style.display = DEBUG_MODE ? 'block' : 'none';
+                    if (DEBUG_MODE) {
+                        debugInfo.innerHTML = '调试模式已启用\n';
+                        logDebug('API基础URL', { url: API_BASE_URL });
+                    }
+                }
+            });
+        });
+    </script>
+</body>
+</html> 
