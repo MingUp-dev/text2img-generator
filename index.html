@@ -4,13 +4,146 @@
     <title>AI图像生成器</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="stylesheet" href="style.css">
-    <!-- 防止favicon 404错误 -->
     <link rel="icon" href="data:,">
-    <!-- Netlify部署测试 -->
-    <script>
-        console.log("页面成功加载 - Netlify部署测试");
-    </script>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body { 
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            text-align: center;
+            background-color: #f5f5f5;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+        }
+        .form-container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        .prompt-form {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 15px;
+        }
+        input[type="text"] {
+            width: 70%;
+            padding: 10px;
+            margin-right: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        button:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+        .image-container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            min-height: 400px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+        .image-wrapper {
+            position: relative;
+            display: inline-block;
+            margin-top: 20px;
+        }
+        img {
+            max-width: 100%;
+            max-height: 500px;
+            display: block;
+        }
+        .download-btn {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 8px 16px;
+            cursor: pointer;
+            transition: 0.3s;
+            display: flex;
+            align-items: center;
+            font-size: 14px;
+        }
+        .download-btn:hover {
+            background-color: rgba(0, 0, 0, 0.9);
+        }
+        .download-icon {
+            margin-right: 6px;
+            width: 16px;
+            height: 16px;
+            fill: white;
+        }
+        .placeholder {
+            width: 300px;
+            height: 300px;
+            border: 2px dashed #ddd;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #aaa;
+        }
+        .status {
+            margin-top: 10px;
+            font-size: 14px;
+            color: #2196F3;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            min-height: 30px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+            display: none;
+        }
+        .error-message {
+            color: #f44336;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+    </style>
 </head>
 <body>
     <h1>AI图像生成器</h1>
@@ -40,6 +173,181 @@
         <div class="placeholder" id="placeholder">尚未生成图片</div>
     </div>
 
-    <script src="script.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const promptInput = document.getElementById('prompt-input');
+            const generateBtn = document.getElementById('generate-btn');
+            const loader = document.getElementById('loading-indicator');
+            const statusText = document.getElementById('status-text');
+            const resultImage = document.getElementById('result-image');
+            const downloadButton = document.getElementById('download-button');
+            const imageWrapper = document.getElementById('image-wrapper');
+            const placeholder = document.getElementById('placeholder');
+            
+            // API密钥 - 内嵌到前端是不安全的，但为了排查问题先这样做
+            const API_KEY = "sk-ce6d40e38d234ce8a1414f4be96868e6";
+            
+            let taskId = null;
+            let pollingInterval = null;
+            let isGenerating = false;
+            
+            // 生成图片按钮点击事件
+            generateBtn.addEventListener('click', function() {
+                if (isGenerating) return;
+                
+                const prompt = promptInput.value.trim();
+                if (!prompt) {
+                    statusText.textContent = "请输入提示词";
+                    statusText.style.color = "#f44336";
+                    return;
+                }
+                
+                startGeneration(prompt);
+            });
+            
+            // 开始生成图片 - 直接调用阿里云API
+            function startGeneration(prompt) {
+                isGenerating = true;
+                generateBtn.disabled = true;
+                loader.style.display = 'inline-block';
+                statusText.textContent = "准备生成图片...";
+                statusText.style.color = "#2196F3";
+                
+                // 清除之前的图片结果
+                imageWrapper.style.display = 'none';
+                placeholder.style.display = 'flex';
+                downloadButton.style.display = 'none';
+                
+                // 直接调用阿里云API
+                fetch('https://dashscope.aliyuncs.com/api/v1/services/aigc/text2image/image-synthesis', {
+                    method: 'POST',
+                    headers: {
+                        'X-DashScope-Async': 'enable',
+                        'Authorization': `Bearer ${API_KEY}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        model: "wanx2.1-t2i-turbo",
+                        input: { prompt: prompt },
+                        parameters: { size: "1024*1024", n: 1 }
+                    })
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP错误: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log("API提交响应:", data);
+                    if (data.output && data.output.task_id) {
+                        taskId = data.output.task_id;
+                        statusText.textContent = "任务已提交，正在生成中...";
+                        startPolling();
+                    } else {
+                        throw new Error("未收到有效的任务ID");
+                    }
+                })
+                .catch(error => {
+                    console.error("API请求错误:", error);
+                    handleError("API请求错误: " + error.message);
+                });
+            }
+            
+            // 轮询检查生成状态
+            function startPolling() {
+                if (pollingInterval) clearInterval(pollingInterval);
+                
+                let attempts = 0;
+                const maxAttempts = 30;
+                
+                pollingInterval = setInterval(() => {
+                    attempts++;
+                    statusText.textContent = `任务处理中...(${attempts}/${maxAttempts})`;
+                    
+                    // 直接调用阿里云API检查状态
+                    fetch(`https://dashscope.aliyuncs.com/api/v1/tasks/${taskId}`, {
+                        headers: {
+                            'Authorization': `Bearer ${API_KEY}`
+                        }
+                    })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`HTTP错误: ${response.status}`);
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        console.log("状态查询响应:", data);
+                        const taskStatus = data.output.task_status;
+                        
+                        if (taskStatus === 'SUCCEEDED') {
+                            clearInterval(pollingInterval);
+                            const imageUrl = data.output.results[0].url;
+                            handleSuccess(imageUrl);
+                        } else if (taskStatus === 'FAILED') {
+                            clearInterval(pollingInterval);
+                            const errorMsg = data.output.message || "图片生成失败";
+                            handleError(errorMsg);
+                        } else if (attempts >= maxAttempts) {
+                            clearInterval(pollingInterval);
+                            handleError("生成超时，请重试");
+                        }
+                    })
+                    .catch(error => {
+                        console.error("状态查询错误:", error);
+                        clearInterval(pollingInterval);
+                        handleError("获取状态失败: " + error.message);
+                    });
+                }, 2000); // 每2秒检查一次
+            }
+            
+            // 处理生成成功
+            function handleSuccess(imageUrl) {
+                loader.style.display = 'none';
+                statusText.textContent = "图片生成成功！";
+                statusText.style.color = "#4CAF50";
+                
+                resultImage.src = imageUrl;
+                resultImage.onload = function() {
+                    imageWrapper.style.display = 'inline-block';
+                    placeholder.style.display = 'none';
+                    downloadButton.style.display = 'flex';
+                    downloadButton.onclick = function() { 
+                        downloadImage(imageUrl, promptInput.value); 
+                    };
+                };
+                
+                // 重置生成状态
+                isGenerating = false;
+                generateBtn.disabled = false;
+            }
+            
+            // 处理错误
+            function handleError(message) {
+                loader.style.display = 'none';
+                statusText.textContent = message;
+                statusText.style.color = "#f44336";
+                
+                // 重置生成状态
+                isGenerating = false;
+                generateBtn.disabled = false;
+            }
+            
+            // 下载图片
+            function downloadImage(imageUrl, promptText) {
+                if (!imageUrl) return;
+                
+                const filename = `${promptText}_${new Date().getTime()}.jpg`;
+                
+                const link = document.createElement('a');
+                link.href = imageUrl;
+                link.download = filename;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
+        });
+    </script>
 </body>
 </html> 
