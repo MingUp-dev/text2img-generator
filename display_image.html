@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>腾讯混元 AI 图像生成器</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input[type="text"], select, textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        textarea {
+            height: 100px;
+            resize: vertical;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            width: 100%;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        .image-container {
+            margin-top: 20px;
+            text-align: center;
+        }
+        .image-container img {
+            max-width: 100%;
+            border-radius: 4px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+        .status {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 4px;
+            text-align: center;
+        }
+        .success {
+            background-color: #dff0d8;
+            color: #3c763d;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        .hidden {
+            display: none;
+        }
+        .loading {
+            text-align: center;
+            margin-top: 20px;
+        }
+        .loading-spinner {
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #4CAF50;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 2s linear infinite;
+            margin: 10px auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .retry-btn {
+            background-color: #2196F3;
+            margin-top: 10px;
+        }
+        .retry-btn:hover {
+            background-color: #0b7dda;
+        }
+        .prompt-info {
+            margin-top: 15px;
+            padding: 10px;
+            background-color: #f9f9f9;
+            border-radius: 4px;
+            border-left: 3px solid #4CAF50;
+            font-size: 14px;
+            white-space: pre-line;
+        }
+    </style>
+</head>
+<body>
+    <h1>腾讯混元 AI 图像生成器</h1>
+    <div class="container">
+        <div class="form-group">
+            <label for="prompt">提示词：</label>
+            <textarea id="prompt" name="prompt" placeholder="描述你想要生成的图像内容...">春天的樱花树下，年轻女孩在微风中跳舞</textarea>
+        </div>
+        
+        <div class="form-group">
+            <label for="style">风格：</label>
+            <select id="style" name="style">
+                <option value="riman">日漫风格</option>
+                <option value="dongman">动漫风格</option>
+                <option value="youhua">油画风格</option>
+                <option value="shuimo">水墨风格</option>
+                <option value="chunmei">国风Q版</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="size">尺寸：</label>
+            <select id="size" name="size">
+                <option value="1024x1024">1024x1024 (方形)</option>
+                <option value="1024x768">1024x768 (横版)</option>
+                <option value="768x1024">768x1024 (竖版)</option>
+            </select>
+        </div>
+        
+        <button id="generateBtn">生成图像</button>
+        
+        <div class="loading hidden" id="loading">
+            <div class="loading-spinner"></div>
+            <p id="loadingText">正在生成图像，请稍候...</p>
+            <p><small>这可能需要30秒到1分钟，请耐心等待</small></p>
+        </div>
+        
+        <div class="status hidden" id="status"></div>
+        
+        <div class="image-container hidden" id="imageContainer">
+            <img id="generatedImage" src="" alt="生成的图像">
+            <div id="promptInfo" class="prompt-info hidden"></div>
+        </div>
+
+        <button id="retryBtn" class="retry-btn hidden">重试</button>
+    </div>
+
+    <script>
+        const generateBtn = document.getElementById('generateBtn');
+        const retryBtn = document.getElementById('retryBtn');
+        const loading = document.getElementById('loading');
+        const loadingText = document.getElementById('loadingText');
+        const status = document.getElementById('status');
+        const imageContainer = document.getElementById('imageContainer');
+        const generatedImage = document.getElementById('generatedImage');
+        const promptInfo = document.getElementById('promptInfo');
+        
+        // 生成图像函数
+        function generateImage() {
+            const prompt = document.getElementById('prompt').value;
+            const style = document.getElementById('style').value;
+            const size = document.getElementById('size').value;
+            
+            if (!prompt.trim()) {
+                showStatus("请输入图像描述提示词", "error");
+                return;
+            }
+            
+            // 显示加载状态
+            loading.classList.remove('hidden');
+            status.classList.add('hidden');
+            imageContainer.classList.add('hidden');
+            promptInfo.classList.add('hidden');
+            retryBtn.classList.add('hidden');
+            
+            // 禁用生成按钮
+            generateBtn.disabled = true;
+            
+            // 更新加载文本以显示正在生成
+            loadingText.textContent = "正在提交生成请求...";
+            
+            // 发送API请求
+            fetch('/generate_image', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    prompt: prompt,
+                    style: style,
+                    size: size
+                })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                // 隐藏加载状态
+                loading.classList.add('hidden');
+                
+                // 启用生成按钮
+                generateBtn.disabled = false;
+                
+                if (data.success) {
+                    // 显示成功状态
+                    showStatus(data.message || "图像生成成功！", "success");
+                    
+                    // 显示生成的图像
+                    const imageElement = document.getElementById('generatedImage');
+                    
+                    // 为了避免缓存，添加时间戳参数
+                    const timestamp = new Date().getTime();
+                    imageElement.src = `${data.image_path}?t=${timestamp}`;
+                    
+                    // 显示提示词信息
+                    if (data.prompt_info) {
+                        promptInfo.textContent = data.prompt_info;
+                        promptInfo.classList.remove('hidden');
+                    } else {
+                        promptInfo.classList.add('hidden');
+                    }
+                    
+                    // 显示图像容器
+                    imageContainer.classList.remove('hidden');
+                    
+                    // 图像加载错误处理
+                    imageElement.onerror = function() {
+                        showStatus("图像加载失败，请重试", "error");
+                        imageContainer.classList.add('hidden');
+                        retryBtn.classList.remove('hidden');
+                    };
+                } else {
+                    // 显示错误信息
+                    showStatus(data.error || "图像生成失败，请稍后重试", "error");
+                    retryBtn.classList.remove('hidden');
+                }
+            })
+            .catch(error => {
+                console.error('错误:', error);
+                loading.classList.add('hidden');
+                generateBtn.disabled = false;
+                showStatus("请求失败，请检查网络连接或服务器状态", "error");
+                retryBtn.classList.remove('hidden');
+            });
+        }
+        
+        // 显示状态信息
+        function showStatus(message, type) {
+            status.textContent = message;
+            status.className = `status ${type}`;
+            status.classList.remove('hidden');
+        }
+        
+        // 添加事件监听器
+        generateBtn.addEventListener('click', generateImage);
+        
+        // 重试按钮
+        retryBtn.addEventListener('click', generateImage);
+        
+        // 检查图片加载
+        generatedImage.addEventListener('load', function() {
+            console.log('图像加载成功');
+        });
+    </script>
+</body>
+</html> 

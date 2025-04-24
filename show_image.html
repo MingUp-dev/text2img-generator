@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>腾讯混元AI图像展示</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+            text-align: center;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .image-container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-top: 20px;
+            position: relative;
+            min-height: 200px;
+        }
+        img {
+            max-width: 100%;
+            border-radius: 4px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+        .info {
+            margin-top: 20px;
+            font-size: 14px;
+            color: #666;
+        }
+        .control-panel {
+            margin-top: 20px;
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+        }
+        button {
+            padding: 8px 16px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            display: none;
+        }
+        .loading:after {
+            content: " ";
+            display: block;
+            width: 40px;
+            height: 40px;
+            margin: 8px;
+            border-radius: 50%;
+            border: 6px solid #4CAF50;
+            border-color: #4CAF50 transparent #4CAF50 transparent;
+            animation: loading 1.2s linear infinite;
+        }
+        @keyframes loading {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <h1>腾讯混元AI图像</h1>
+    <div class="image-container">
+        <div id="loading" class="loading"></div>
+        <div id="image-display">
+            <!-- 图像将通过JavaScript动态插入 -->
+            <p>正在查找生成的图像...</p>
+        </div>
+    </div>
+    <div class="info">
+        <p>通过腾讯混元模型生成的AI图像</p>
+        <p id="timestamp"></p>
+        <p id="imageInfo"></p>
+    </div>
+    
+    <div class="control-panel">
+        <button id="refreshBtn">刷新图像</button>
+    </div>
+
+    <script>
+        // 获取当前时间
+        const now = new Date();
+        document.getElementById('timestamp').textContent = `页面加载时间: ${now.toLocaleString()}`;
+        
+        // 获取最新图片的目录
+        async function findLatestImageDir() {
+            try {
+                const response = await fetch('/hunyuan_images/');
+                if (!response.ok) {
+                    throw new Error('无法获取图像目录');
+                }
+                
+                // 这种方式在简单的HTTP服务器可能不可用，所以使用后备方案
+                return 'batch_' + new Date().toISOString().slice(0,10).replace(/-/g,'');
+            } catch (error) {
+                console.error('获取目录失败:', error);
+                return null;
+            }
+        }
+        
+        // 显示图片
+        async function displayLatestImage() {
+            document.getElementById('loading').style.display = 'block';
+            
+            // 尝试所有可能的目录
+            const possibleDirs = [
+                'batch_20250424163532',  // 新生成的迪迦图片
+                'batch_20250424160159',  // 之前生成的图片目录
+                `batch_${new Date().toISOString().slice(0,10).replace(/-/g,'')}` // 今天的日期
+            ];
+            
+            let foundImage = false;
+            
+            for (const dir of possibleDirs) {
+                const imagePath = `hunyuan_images/${dir}/image.jpg`;
+                
+                try {
+                    // 检查图片是否存在
+                    const response = await fetch(imagePath, { method: 'HEAD' });
+                    if (response.ok) {
+                        displayImage(imagePath, dir);
+                        foundImage = true;
+                        break;
+                    }
+                } catch (error) {
+                    console.warn(`路径 ${imagePath} 不存在:`, error);
+                }
+            }
+            
+            if (!foundImage) {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('image-display').innerHTML = 
+                    '<p>未找到生成的图像。请先运行 hunyuan_complete.py 生成图片。</p>';
+            }
+        }
+        
+        function displayImage(imagePath, dirName) {
+            const imgElement = document.createElement('img');
+            imgElement.src = imagePath;
+            imgElement.alt = "腾讯混元AI生成的图像";
+            
+            imgElement.onerror = function() {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('image-display').innerHTML = 
+                    '<p>图像加载失败。请检查图像路径是否正确。</p>';
+            };
+            
+            imgElement.onload = function() {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('image-display').innerHTML = '';
+                document.getElementById('image-display').appendChild(imgElement);
+                document.getElementById('imageInfo').textContent = `图像路径: ${imagePath}`;
+                
+                // 尝试读取提示词文件
+                fetch(`hunyuan_images/${dirName}/prompt.txt`)
+                    .then(response => response.text())
+                    .then(text => {
+                        const promptInfo = document.createElement('div');
+                        promptInfo.style.textAlign = 'left';
+                        promptInfo.style.marginTop = '10px';
+                        promptInfo.style.padding = '10px';
+                        promptInfo.style.backgroundColor = '#f9f9f9';
+                        promptInfo.style.borderRadius = '4px';
+                        promptInfo.style.fontSize = '12px';
+                        promptInfo.innerHTML = text.replace(/\n/g, '<br>');
+                        document.getElementById('image-display').appendChild(promptInfo);
+                    })
+                    .catch(error => console.warn('无法加载提示词文件:', error));
+            };
+        }
+        
+        // 刷新按钮事件
+        document.getElementById('refreshBtn').addEventListener('click', displayLatestImage);
+        
+        // 页面加载后显示图片
+        window.onload = displayLatestImage;
+    </script>
+</body>
+</html> 
